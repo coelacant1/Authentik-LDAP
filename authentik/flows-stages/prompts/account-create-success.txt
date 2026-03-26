@@ -1,0 +1,9 @@
+Name: account-create-success
+Field Key: account-create-success
+Label: Account Creation Successful
+Type: Static
+Required: No
+Interpret placeholder as expression: No
+Initial Value: Account Creation Successful
+Help Text: 
+Order: 0

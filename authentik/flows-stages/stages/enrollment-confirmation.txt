@@ -1,0 +1,4 @@
+Name: Enrollment Confirmation
+Stage Type: Prompt Stage
+Fields: enrollment-wait-user-message
+Validation Policies: (none)

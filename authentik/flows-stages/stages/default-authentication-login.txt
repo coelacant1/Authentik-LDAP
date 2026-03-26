@@ -1,0 +1,7 @@
+Name: default-authentication-login
+Stage Type: User Login Stage
+Session Duration: seconds=0
+Remember Me Offset: seconds=0
+Remember Device: days=30
+Network Binding: no_binding
+GeoIP Binding: no_binding

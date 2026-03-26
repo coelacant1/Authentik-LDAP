@@ -1,0 +1,3 @@
+Name: Block Disabled Accounts
+Stage Type: Deny Stage
+Deny Message: Your account is disabled, please use Forgot Password to re-enable account.

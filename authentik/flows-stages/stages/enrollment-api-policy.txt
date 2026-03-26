@@ -1,0 +1,3 @@
+Name: enrollment-api-policy
+Stage Type: Deny Stage
+Deny Message: 

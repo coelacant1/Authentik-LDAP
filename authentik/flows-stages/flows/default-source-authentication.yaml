@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+version: 1
+metadata:
+  name: Default Source Authentication
+entries:
+  - model: authentik_flows.flow
+    id: source-auth-flow
+    identifiers:
+      slug: default-source-authentication
+    attrs:
+      name: Welcome to authentik!
+      title: Welcome to authentik!
+      designation: authentication
+      authentication: require_unauthenticated
+      denied_action: message_continue
+      layout: stacked
+      policy_engine_mode: any
+
+  - model: authentik_policies_expression.expressionpolicy
+    id: source-auth-if-sso-policy
+    identifiers:
+      name: default-source-authentication-if-sso
+    attrs:
+      expression: |
+        # This policy ensures that this flow can only be used when the user
+        # is in a SSO Flow (meaning they come from an external IdP)
+        return ak_is_sso_flow
+
+  - model: authentik_stages_user_login.userloginstage
+    id: source-auth-login-stage
+    identifiers:
+      name: default-source-authentication-login
+    attrs:
+      geoip_binding: no_binding
+      network_binding: no_binding
+      remember_device: days=30
+      remember_me_offset: seconds=0
+      session_duration: seconds=0
+
+  - model: authentik_flows.flowstagebinding
+    id: source-auth-binding-0
+    identifiers:
+      target: !KeyOf source-auth-flow
+      stage: !KeyOf source-auth-login-stage
+      order: 0
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf source-auth-flow
+      policy: !KeyOf source-auth-if-sso-policy
+      order: 0
+    attrs:
+      enabled: true
+      timeout: 30

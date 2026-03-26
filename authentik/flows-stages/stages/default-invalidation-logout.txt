@@ -1,0 +1,2 @@
+Name: default-invalidation-logout
+Stage Type: User Logout Stage

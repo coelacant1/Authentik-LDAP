@@ -1,0 +1,4 @@
+Name: default-source-enrollment-write
+Stage Type: User Write Stage
+User Creation Mode: always_create
+User Type: external

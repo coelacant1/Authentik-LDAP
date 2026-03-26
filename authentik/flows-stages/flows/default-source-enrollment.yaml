@@ -1,0 +1,127 @@
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+version: 1
+metadata:
+  name: Default Source Enrollment
+entries:
+  - model: authentik_flows.flow
+    id: source-enrollment-flow
+    identifiers:
+      slug: default-source-enrollment
+    attrs:
+      name: Welcome to authentik! Please select a username.
+      title: Welcome to authentik! Please select a username.
+      designation: enrollment
+      authentication: none
+      denied_action: message_continue
+      layout: stacked
+      policy_engine_mode: any
+
+  - model: authentik_stages_prompt.prompt
+    id: source-enrollment-username-prompt
+    identifiers:
+      name: default-source-enrollment-field-username
+    attrs:
+      field_key: username
+      label: Username
+      order: 100
+      placeholder: Username
+      required: true
+      type: username
+
+  - model: authentik_policies_expression.expressionpolicy
+    id: source-enrollment-if-sso-policy
+    identifiers:
+      name: default-source-enrollment-if-sso
+    attrs:
+      expression: |
+        # This policy ensures that this flow can only be used when the user
+        # is in a SSO Flow (meaning they come from an external IdP)
+        return ak_is_sso_flow
+
+  - model: authentik_policies_expression.expressionpolicy
+    id: source-enrollment-if-username-policy
+    identifiers:
+      name: default-source-enrollment-if-username
+    attrs:
+      expression: |
+        # Check if we've not been given a username by the external IdP
+        # and trigger the enrollment flow
+        return 'username' not in context.get('prompt_data', {})
+
+  - model: authentik_stages_prompt.promptstage
+    id: source-enrollment-prompt-stage
+    identifiers:
+      name: default-source-enrollment-prompt
+    attrs:
+      fields:
+        - !KeyOf source-enrollment-username-prompt
+
+  - model: authentik_stages_user_write.userwritestage
+    id: source-enrollment-write-stage
+    identifiers:
+      name: default-source-enrollment-write
+    attrs:
+      user_creation_mode: always_create
+      user_type: external
+
+  - model: authentik_stages_user_login.userloginstage
+    id: source-enrollment-login-stage
+    identifiers:
+      name: default-source-enrollment-login
+    attrs:
+      geoip_binding: no_binding
+      network_binding: no_binding
+      remember_device: days=30
+      remember_me_offset: seconds=0
+      session_duration: seconds=0
+
+  - model: authentik_flows.flowstagebinding
+    id: source-enrollment-binding-0
+    identifiers:
+      target: !KeyOf source-enrollment-flow
+      stage: !KeyOf source-enrollment-prompt-stage
+      order: 0
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: source-enrollment-binding-1
+    identifiers:
+      target: !KeyOf source-enrollment-flow
+      stage: !KeyOf source-enrollment-write-stage
+      order: 1
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: source-enrollment-binding-2
+    identifiers:
+      target: !KeyOf source-enrollment-flow
+      stage: !KeyOf source-enrollment-login-stage
+      order: 2
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf source-enrollment-flow
+      policy: !KeyOf source-enrollment-if-sso-policy
+      order: 0
+    attrs:
+      enabled: true
+      timeout: 30
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf source-enrollment-binding-0
+      policy: !KeyOf source-enrollment-if-username-policy
+      order: 0
+    attrs:
+      enabled: true
+      timeout: 30

@@ -1,0 +1,4 @@
+Name: Show Success Message
+Stage Type: Prompt Stage
+Fields: password-reset-success
+Validation Policies: (none)

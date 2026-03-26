@@ -1,0 +1,278 @@
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+version: 1
+metadata:
+  name: Default Enrollment Flow
+entries:
+  # ---- Flow ----
+  - model: authentik_flows.flow
+    id: enrollment-flow
+    identifiers:
+      slug: default-enrollment-flow
+    attrs:
+      name: Account Enrollment
+      title: Create an Account
+      designation: enrollment
+      authentication: require_unauthenticated
+      denied_action: message_continue
+      layout: stacked
+      policy_engine_mode: any
+
+  # ---- Prompt Fields ----
+  - model: authentik_stages_prompt.prompt
+    id: prompt-name
+    identifiers:
+      name: default-enrollment-field-name
+    attrs:
+      field_key: name
+      label: "Full name"
+      order: 100
+      placeholder: "Full name"
+      placeholder_expression: false
+      required: true
+      type: text
+
+  - model: authentik_stages_prompt.prompt
+    id: prompt-email
+    identifiers:
+      name: default-enrollment-field-email
+    attrs:
+      field_key: email
+      label: Email
+      order: 101
+      placeholder: Email
+      placeholder_expression: false
+      required: true
+      type: email
+
+  - model: authentik_stages_prompt.prompt
+    id: prompt-enrollment-wait
+    identifiers:
+      name: enrollment-wait-user-message
+    attrs:
+      field_key: enrollment-wait-user-message
+      label: "Static: enrollment-wait-user-message"
+      order: 200
+      placeholder: |
+        Your account is being created! This process may take up to 60 seconds.
+        Please wait while your account is set up.
+      placeholder_expression: false
+      required: true
+      type: static
+      sub_text: ""
+
+  - model: authentik_stages_prompt.prompt
+    id: prompt-account-success
+    identifiers:
+      name: account-create-success
+    attrs:
+      field_key: account-create-success
+      label: "Static: account-create-success"
+      order: 300
+      placeholder: |
+        Your account has been created successfully!
+        Please login with your email and password.
+        You may need to wait up to 2 minutes for your account to sync before logging in.
+      placeholder_expression: false
+      required: true
+      type: static
+      sub_text: ""
+
+  # ---- Policies ----
+  - model: authentik_policies_expression.expressionpolicy
+    id: email-domain-policy
+    identifiers:
+      name: email-domain-restriction
+    attrs:
+      expression: |
+        # This policy restricts enrollment to specific email domains
+        # Adjust the allowed_domains list as needed
+        email = request.context.get('prompt_data', {}).get('email', '')
+        allowed_domains = ['<EMAIL_DOMAIN>']
+
+        if not email:
+            ak_message("Email is required")
+            return False
+
+        domain = email.split('@')[-1].lower()
+
+        if domain not in allowed_domains:
+            ak_message(f"Registration is restricted to {', '.join(allowed_domains)} email addresses")
+            return False
+
+        return True
+
+  - model: authentik_policies_expression.expressionpolicy
+    id: create-ad-user-policy
+    identifiers:
+      name: create-ad-user
+    attrs:
+      expression: "import requests\nimport time\n\n# This policy calls the AD User\
+        \ API to create a new user account\n# It is bound to the enrollment flow and\
+        \ runs after the user submits their info\n\nprompt_data = request.context.get('prompt_data',\
+        \ {})\nemail = prompt_data.get('email', '')\nfull_name = prompt_data.get('name',\
+        \ '')\n\nak_logger.info(f\"Starting account creation for {email}\")\n\ntry:\n\
+        \    # Step 1: Create the AD user account\n    create_response = requests.post(\n\
+        \        \"http://<AUTHENTIK_IP>:5000/create-user\",\n        json={\n      \
+        \      \"email\": email,\n            \"full_name\": full_name\n        },\n\
+        \        headers={\n            \"Authorization\": \"Bearer <API_KEY>\",\n  \
+        \          \"Content-Type\": \"application/json\"\n        },\n        timeout=30\n\
+        \    )\n    \n    create_result = create_response.json()\n    \n    if create_response.status_code\
+        \ != 200 or not create_result.get(\"success\"):\n        error = create_result.get('error',\
+        \ 'Unknown error')\n        ak_logger.error(f\"Failed to create account for\
+        \ {email}: {error}\")\n        ak_message(\"Account creation failed. Please\
+        \ try again later.\")\n        return False\n    \n    temp_password = create_result.get('temp_password',\
+        \ '')\n    ak_logger.info(f\"AD account created for {email}, waiting for sync...\"\
+        )\n    \n    # Step 2: Wait for LDAP sync to complete\n    max_retries = 12\n\
+        \    retry_delay = 5\n    \n    for attempt in range(max_retries):\n        time.sleep(retry_delay)\n\
+        \        \n        check_response = requests.post(\n            \"http://<AUTHENTIK_IP>:5000/check-user-status\"\
+        ,\n            json={\"email\": email},\n            headers={\n            \
+        \    \"Authorization\": \"Bearer <API_KEY>\",\n                \"Content-Type\"\
+        : \"application/json\"\n            },\n            timeout=10\n        )\n \
+        \       \n        if check_response.status_code == 200:\n            check_result\
+        \ = check_response.json()\n            if check_result.get('success') and check_result.get('exists',\
+        \ False):\n                ak_logger.info(f\"User {email} synced to authentik\
+        \ after {(attempt+1)*retry_delay}s\")\n                \n                # Set\
+        \ the temporary password in the flow context\n                # so the user can\
+        \ log in\n                request.context['prompt_data']['password'] = temp_password\n\
+        \                return True\n        \n        ak_logger.info(f\"Waiting for\
+        \ sync... attempt {attempt+1}/{max_retries}\")\n    \n    # Sync didn't complete\
+        \ in time but account was created\n    ak_logger.warning(f\"Sync timeout for\
+        \ {email} - account created but not yet synced\")\n    ak_message(\"Your account\
+        \ was created but sync is still in progress. Please wait a few minutes before\
+        \ logging in.\")\n    return True\n    \nexcept Exception as e:\n    ak_logger.error(f\"\
+        Exception during account creation for {email}: {str(e)}\")\n    ak_message(\"\
+        An error occurred during account creation. Please try again later.\")\n    return\
+        \ False"
+
+  # ---- Stages ----
+  - model: authentik_stages_captcha.captchastage
+    id: captcha-stage
+    identifiers:
+      name: Cloudflare Turnstile
+    attrs:
+      api_url: https://challenges.cloudflare.com/turnstile/v0/siteverify
+      js_url: https://challenges.cloudflare.com/turnstile/v0/api.js
+      public_key: "<CAPTCHA_PUBLIC_KEY>"
+      private_key: "<CAPTCHA_PRIVATE_KEY>"
+
+  - model: authentik_stages_prompt.promptstage
+    id: enrollment-prompt-stage
+    identifiers:
+      name: enrollment-prompt
+    attrs:
+      fields:
+        - !KeyOf prompt-name
+        - !KeyOf prompt-email
+      validation_policies:
+        - !KeyOf email-domain-policy
+
+  - model: authentik_stages_prompt.promptstage
+    id: enrollment-confirmation-stage
+    identifiers:
+      name: Enrollment Confirmation
+    attrs:
+      fields:
+        - !KeyOf prompt-enrollment-wait
+
+  - model: authentik_stages_deny.denystage
+    id: enrollment-deny-stage
+    identifiers:
+      name: enrollment-api-policy
+    attrs:
+      deny_message: ""
+
+  - model: authentik_stages_prompt.promptstage
+    id: enrollment-success-stage
+    identifiers:
+      name: Account Creation Successful
+    attrs:
+      fields:
+        - !KeyOf prompt-account-success
+
+  - model: authentik_stages_redirect.redirectstage
+    id: redirect-to-login-stage
+    identifiers:
+      name: Redirect to login page
+    attrs:
+      keep_url: false
+      mode: static
+      target_static: "https://account.<YOUR_DOMAIN>"
+
+  # ---- Flow-Stage Bindings ----
+  - model: authentik_flows.flowstagebinding
+    id: enrollment-binding-0
+    identifiers:
+      target: !KeyOf enrollment-flow
+      stage: !KeyOf captcha-stage
+      order: 0
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: enrollment-binding-10
+    identifiers:
+      target: !KeyOf enrollment-flow
+      stage: !KeyOf enrollment-prompt-stage
+      order: 10
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: enrollment-binding-20
+    identifiers:
+      target: !KeyOf enrollment-flow
+      stage: !KeyOf enrollment-confirmation-stage
+      order: 20
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: enrollment-binding-30
+    identifiers:
+      target: !KeyOf enrollment-flow
+      stage: !KeyOf enrollment-deny-stage
+      order: 30
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: enrollment-binding-40
+    identifiers:
+      target: !KeyOf enrollment-flow
+      stage: !KeyOf enrollment-success-stage
+      order: 40
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: enrollment-binding-50
+    identifiers:
+      target: !KeyOf enrollment-flow
+      stage: !KeyOf redirect-to-login-stage
+      order: 50
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  # ---- Policy Bindings ----
+  # create-ad-user policy -> deny stage binding (negated: deny if policy fails)
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf enrollment-binding-30
+      policy: !KeyOf create-ad-user-policy
+      order: 0
+    attrs:
+      enabled: true
+      negate: true
+      timeout: 300

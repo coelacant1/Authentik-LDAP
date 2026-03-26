@@ -1,0 +1,4 @@
+Name: Account Creation Successful
+Stage Type: Prompt Stage
+Fields: account-create-success
+Validation Policies: (none)

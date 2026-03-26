@@ -1,0 +1,4 @@
+Name: Recovery Information
+Stage Type: Prompt Stage
+Fields: recovery-user-wait-message
+Validation Policies: (none)

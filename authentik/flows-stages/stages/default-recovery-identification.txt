@@ -1,0 +1,11 @@
+Name: default-recovery-identification
+Stage Type: Identification Stage
+User Fields: username, email
+Case Insensitive Matching: Yes
+Show Matched User: Yes
+Captcha Stage: Cloudflare Turnstile
+Enrollment Flow: (none)
+Password Stage: (none)
+Recovery Flow: (none)
+Passwordless Flow: (none)
+Sources: (none)

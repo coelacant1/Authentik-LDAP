@@ -1,0 +1,308 @@
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+version: 1
+metadata:
+  name: Default Recovery Flow
+entries:
+  # ---- Flow ----
+  - model: authentik_flows.flow
+    id: recovery-flow
+    identifiers:
+      slug: default-recovery-flow
+    attrs:
+      name: Password Recovery
+      title: Forgot Password
+      designation: recovery
+      authentication: require_unauthenticated
+      denied_action: message_continue
+      layout: stacked
+      policy_engine_mode: any
+
+  # ---- Prompt Fields ----
+  - model: authentik_stages_prompt.prompt
+    id: prompt-password
+    identifiers:
+      name: default-recovery-field-password
+    attrs:
+      field_key: password
+      label: Password
+      order: 300
+      placeholder: Password
+      placeholder_expression: false
+      required: true
+      type: password
+
+  - model: authentik_stages_prompt.prompt
+    id: prompt-password-repeat
+    identifiers:
+      name: default-recovery-field-password-repeat
+    attrs:
+      field_key: password_repeat
+      label: Password (repeat)
+      order: 301
+      placeholder: Password (repeat)
+      placeholder_expression: false
+      required: true
+      type: password
+
+  - model: authentik_stages_prompt.prompt
+    id: prompt-recovery-wait
+    identifiers:
+      name: recovery-user-wait-message
+    attrs:
+      field_key: recovery-user-wait-message
+      label: "Static: recovery-user-wait-message"
+      order: 200
+      placeholder: |
+        Your password is being reset and your account is being re-enabled.
+        This process may take up to 60 seconds. Please wait...
+      placeholder_expression: false
+      required: true
+      type: static
+      sub_text: ""
+
+  - model: authentik_stages_prompt.prompt
+    id: prompt-password-success
+    identifiers:
+      name: password-reset-success
+    attrs:
+      field_key: password-reset-success
+      label: "Static: password-reset-success"
+      order: 300
+      placeholder: |
+        Your password has been reset and your account has been re-enabled!
+        Please login with your new password.
+        You may need to wait up to 2 minutes for your account to sync before logging in.
+      placeholder_expression: false
+      required: true
+      type: static
+      sub_text: ""
+
+  # ---- Policies ----
+  - model: authentik_policies_expression.expressionpolicy
+    id: skip-if-restored-policy
+    identifiers:
+      name: default-recovery-skip-if-restored
+    attrs:
+      expression: |
+        # If the password has already been reset, skip this stage
+        return request.context.get('prompt_data', {}).get('password', '') == ''
+
+  - model: authentik_policies_expression.expressionpolicy
+    id: enable-ldap-account-policy
+    identifiers:
+      name: enable-ldap-account-on-verification
+    attrs:
+      expression: "import requests\nimport time\n\n# This policy calls the AD User\
+        \ API to reset the user's password and re-enable their account\n# It runs during\
+        \ the recovery flow after email verification\n\nuser = request.context.get('pending_user')\n\
+        if not user:\n    ak_logger.error(\"No pending user in recovery flow context\"\
+        )\n    ak_message(\"An error occurred. Please try again.\")\n    return False\n\
+        \nemail = user.email\nprompt_data = request.context.get('prompt_data', {})\n\
+        new_password = prompt_data.get('password', '')\n\nif not new_password:\n    ak_logger.error(f\"\
+        No password in prompt_data for {email}\")\n    ak_message(\"Password is required.\"\
+        )\n    return False\n\nak_logger.info(f\"Starting password reset and account\
+        \ enable for {email}\")\n\ntry:\n    # Call the enable-user endpoint which resets\
+        \ password and enables the account\n    response = requests.post(\n        \"\
+        http://<AUTHENTIK_IP>:5000/enable-user\",\n        json={\n            \"email\"\
+        : email,\n            \"new_password\": new_password\n        },\n        headers={\n\
+        \            \"Authorization\": \"Bearer <API_KEY>\",\n            \"Content-Type\"\
+        : \"application/json\"\n        },\n        timeout=30\n    )\n    \n    result\
+        \ = response.json()\n    \n    if response.status_code != 200 or not result.get(\"\
+        success\"):\n        error = result.get('error', 'Unknown error')\n        ak_logger.error(f\"\
+        Failed to reset password for {email}: {error}\")\n        ak_message(\"\
+        Unable to enable your account. Please contact support.\")\n        return False\n    \n    ak_logger.info(f\"\
+        Password reset and account enabled for {email}\")\n    \n    # Wait briefly\
+        \ for AD sync\n    time.sleep(5)\n    \n    return True\n    \nexcept Exception\
+        \ as e:\n    ak_logger.error(f\"Exception during password reset for {email}:\
+        \ {str(e)}\")\n    ak_message(\"An error occurred during password reset. Please\
+        \ try again later.\")\n    return False"
+
+  # ---- Stages ----
+  - model: authentik_stages_identification.identificationstage
+    id: recovery-identification-stage
+    identifiers:
+      name: default-recovery-identification
+    attrs:
+      case_insensitive_matching: true
+      show_matched_user: true
+      user_fields:
+        - username
+        - email
+      captcha_stage: !Find [authentik_stages_captcha.captchastage, [name, Cloudflare Turnstile]]
+
+  - model: authentik_stages_email.emailstage
+    id: recovery-email-stage
+    identifiers:
+      name: default-recovery-email
+    attrs:
+      activate_user_on_success: true
+      from_address: system@<YOUR_DOMAIN>
+      host: smtp.gmail.com
+      port: 587
+      subject: Password Recovery
+      template: email/password_reset.html
+      timeout: 30
+      token_expiry: 60
+      use_global_settings: true
+      use_tls: true
+      username: "<SMTP_USERNAME>"
+
+  - model: authentik_stages_prompt.promptstage
+    id: change-password-stage
+    identifiers:
+      name: Change your password
+    attrs:
+      fields:
+        - !KeyOf prompt-password
+        - !KeyOf prompt-password-repeat
+      validation_policies: []
+
+  - model: authentik_stages_user_write.userwritestage
+    id: recovery-user-write-stage
+    identifiers:
+      name: default-recovery-user-write
+    attrs:
+      user_creation_mode: never_create
+
+  - model: authentik_stages_prompt.promptstage
+    id: recovery-info-stage
+    identifiers:
+      name: Recovery Information
+    attrs:
+      fields:
+        - !KeyOf prompt-recovery-wait
+
+  - model: authentik_stages_prompt.promptstage
+    id: recovery-success-stage
+    identifiers:
+      name: Show Success Message
+    attrs:
+      fields:
+        - !KeyOf prompt-password-success
+
+  - model: authentik_stages_deny.denystage
+    id: recovery-enable-deny-stage
+    identifiers:
+      name: Enable Account
+    attrs:
+      deny_message: ""
+
+  - model: authentik_stages_redirect.redirectstage
+    id: recovery-redirect-stage
+    identifiers:
+      name: Redirect to login page
+    attrs:
+      keep_url: false
+      mode: static
+      target_static: "https://account.<YOUR_DOMAIN>"
+
+  # ---- Flow-Stage Bindings ----
+  - model: authentik_flows.flowstagebinding
+    id: recovery-binding-0
+    identifiers:
+      target: !KeyOf recovery-flow
+      stage: !KeyOf recovery-identification-stage
+      order: 0
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: recovery-binding-10
+    identifiers:
+      target: !KeyOf recovery-flow
+      stage: !KeyOf recovery-email-stage
+      order: 10
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: recovery-binding-20
+    identifiers:
+      target: !KeyOf recovery-flow
+      stage: !KeyOf change-password-stage
+      order: 20
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: recovery-binding-30
+    identifiers:
+      target: !KeyOf recovery-flow
+      stage: !KeyOf recovery-user-write-stage
+      order: 30
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: recovery-binding-40
+    identifiers:
+      target: !KeyOf recovery-flow
+      stage: !KeyOf recovery-info-stage
+      order: 40
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: recovery-binding-50
+    identifiers:
+      target: !KeyOf recovery-flow
+      stage: !KeyOf recovery-enable-deny-stage
+      order: 50
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: recovery-binding-60
+    identifiers:
+      target: !KeyOf recovery-flow
+      stage: !KeyOf recovery-success-stage
+      order: 60
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: recovery-binding-70
+    identifiers:
+      target: !KeyOf recovery-flow
+      stage: !KeyOf recovery-redirect-stage
+      order: 70
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  # ---- Policy Bindings ----
+  # skip-if-restored -> user-write binding (only write if password was set)
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf recovery-binding-30
+      policy: !KeyOf skip-if-restored-policy
+      order: 0
+    attrs:
+      enabled: true
+      timeout: 30
+
+  # enable-ldap-account -> deny stage binding (negated: deny if enable fails)
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf recovery-binding-50
+      policy: !KeyOf enable-ldap-account-policy
+      order: 0
+    attrs:
+      enabled: true
+      negate: true
+      timeout: 300

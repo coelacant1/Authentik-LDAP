@@ -1,0 +1,64 @@
+Details:
+    Domain names: app1.account.<YOUR_DOMAIN>
+    Scheme: https
+    Forward hostname: <APP1_IP>
+    Forward port: 3000
+    Cache assets: No
+    Block common exploits: No
+    Websockets support: Yes
+    Access list: Publicly Accessible
+Custom locations:
+SSL:
+Advanced:
+    # --- authentik outpost ---
+    location /outpost.goauthentik.io {
+        proxy_pass              https://<AUTHENTIK_IP>:9443/outpost.goauthentik.io;
+        # NOTE: Set to 'on' in production with a valid certificate
+        proxy_ssl_verify        off;
+        proxy_set_header        Host $host;
+        proxy_set_header        X-Original-URL $scheme://$http_host$request_uri;
+        proxy_set_header        X-Real-IP $remote_addr;
+        proxy_set_header        X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header        X-Forwarded-Proto https;
+        proxy_set_header        Content-Length "";
+        proxy_pass_request_body off;
+    }
+
+    # --- Git smart HTTP - BYPASS authentik ---
+    # WARNING: This disables authentication for Git operations.
+    # Remove this block or add IP restrictions if not needed.
+    location ~ ^/.*\.git/(HEAD|info/refs|objects/|git-(upload|receive)-pack)$ {
+        auth_request off;
+
+        proxy_pass http://<APP1_IP>:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    # --- authentik auth for everything else ---
+    # These apply to NPM's auto-generated location / block
+    auth_request     /outpost.goauthentik.io/auth/nginx;
+    error_page       401 = @goauthentik_proxy_signin;
+
+    auth_request_set $auth_cookie $upstream_http_set_cookie;
+    add_header       Set-Cookie $auth_cookie;
+
+    auth_request_set $authentik_username $upstream_http_x_authentik_username;
+    auth_request_set $authentik_groups $upstream_http_x_authentik_groups;
+    auth_request_set $authentik_email $upstream_http_x_authentik_email;
+    auth_request_set $authentik_name $upstream_http_x_authentik_name;
+    auth_request_set $authentik_uid $upstream_http_x_authentik_uid;
+
+    proxy_set_header X-authentik-username $authentik_username;
+    proxy_set_header X-authentik-groups $authentik_groups;
+    proxy_set_header X-authentik-email $authentik_email;
+    proxy_set_header X-authentik-name $authentik_name;
+    proxy_set_header X-authentik-uid $authentik_uid;
+
+    location @goauthentik_proxy_signin {
+        internal;
+        add_header Set-Cookie $auth_cookie;
+        return 302 /outpost.goauthentik.io/start?rd=$request_uri;
+    }

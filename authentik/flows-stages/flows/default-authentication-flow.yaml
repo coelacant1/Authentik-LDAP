@@ -1,0 +1,254 @@
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+version: 1
+metadata:
+  name: Default Authentication Flow
+entries:
+  # ---- Flow ----
+  - model: authentik_flows.flow
+    id: authentication-flow
+    identifiers:
+      slug: default-authentication-flow
+    attrs:
+      name: Login
+      title: Click login for password and account management
+      designation: authentication
+      authentication: none
+      denied_action: message_continue
+      layout: stacked
+      policy_engine_mode: any
+
+  # ---- Policies ----
+  - model: authentik_policies_expression.expressionpolicy
+    id: block-disabled-accounts-policy
+    identifiers:
+      name: block-disabled-accounts
+    attrs:
+      expression: "import requests\n\n# This policy blocks login for disabled LDAP accounts\n\
+        # Internal authentik users are allowed to pass through\n# Bind this to your\
+        \ authentication flow (e.g., default-authentication-flow)\n# as an Expression\
+        \ Policy on the authentication stage\n\n# Get the user attempting to login\n\
+        user = request.user\n\n# If no user context, allow the flow to continue (we're\
+        \ not at the right stage yet)\nif not user or not hasattr(user, 'email'):\n\
+        \    ak_logger.info(\"No user context found - allowing flow to continue\")\n\
+        \    return True\n\nemail = user.email\n\n# Check if user is from LDAP source\n\
+        is_ldap_user = False\n\ntry:\n    # Method 1: Check user sources\n    user_sources\
+        \ = user.sources.all()\n    for source in user_sources:\n        # Check if\
+        \ any source is an LDAP source\n        # Adjust based on your LDAP source name\
+        \ or type\n        if hasattr(source, 'component') and 'ldap' in source.component.lower():\n\
+        \            is_ldap_user = True\n            ak_logger.info(f\"User {email}\
+        \ identified as LDAP user via source: {source.name}\")\n            break\n\
+        \    \n    # Method 2: Alternative - check by specific source name if you know\
+        \ it\n    # Uncomment and adjust if you prefer this method:\n    # ldap_source_names\
+        \ = [\"ldap-source\", \"active-directory\"]  # Add your LDAP source names\n\
+        \    # for source in user_sources:\n    #     if source.name in ldap_source_names:\n\
+        \    #         is_ldap_user = True\n    #         ak_logger.info(f\"User {email}\
+        \ identified as LDAP user via source name: {source.name}\")\n    #         break\n\
+        \    \nexcept Exception as e:\n    ak_logger.error(f\"Error checking user sources\
+        \ for {email}: {str(e)}\")\n    # If we can't determine the source, assume LDAP\
+        \ for safety\n    is_ldap_user = True\n\n# If user is not from LDAP (i.e., internal\
+        \ authentik user), allow login\nif not is_ldap_user:\n    ak_logger.info(f\"\
+        User {email} is an internal authentik user - allowing login without status check\"\
+        )\n    return True\n\n# User is from LDAP - proceed with status check\nak_logger.info(f\"\
+        Checking account status for LDAP user login attempt: {email}\")\n\ntry:\n  \
+        \  # Check if the account is enabled in AD\n    check_response = requests.post(\n\
+        \        \"http://<AUTHENTIK_IP>:5000/check-user-status\",\n        json={\"email\"\
+        : email},\n        headers={\n            \"Authorization\": \"Bearer <API_KEY>\"\
+        ,\n            \"Content-Type\": \"application/json\"\n        },\n        timeout=10\n\
+        \    )\n    \n    check_result = check_response.json()\n    \n    if check_response.status_code\
+        \ != 200 or not check_result.get(\"success\"):\n        error = check_result.get('error',\
+        \ 'Unknown error')\n        ak_logger.error(f\"Failed to check account status\
+        \ for {email}: {error}\")\n        # Fail closed - block login if we can't\
+        \ verify account status\n        ak_message(\"Unable to verify account status.\
+        \ Please try again later.\")\n        return False\n    \n    is_active = check_result.get(\"\
+        is_active\", False)\n    is_locked = check_result.get(\"is_locked\", False)\n\
+        \    \n    ak_logger.info(f\"Account {email}: is_active={is_active}, is_locked={is_locked}\"\
+        )\n    \n    # Block login if account is disabled or locked\n    if not is_active:\n\
+        \        ak_logger.warning(f\"Login denied for {email}: account is disabled\"\
+        )\n        ak_message(\"Your account is disabled, please use Forgot Password\
+        \ to re-enable account.\")\n        return False\n    \n    if is_locked:\n\
+        \        ak_logger.warning(f\"Login denied for {email}: account is locked\"\
+        )\n        ak_message(\"Your account is locked, please use Forgot Password to\
+        \ re-enable account.\")\n        return False\n    \n    # Account is enabled\
+        \ and unlocked - allow login\n    ak_logger.info(f\"Login allowed for {email}:\
+        \ account is active\")\n    return True\n    \nexcept Exception as e:\n    #\
+        \ Fail closed - block login if we can't verify account status\n    ak_logger.error(f\"\
+        Exception in login check policy for {email}: {str(e)}\")\n    ak_message(\"\
+        Unable to verify account status. Please try again later.\")\n    return False"
+
+  - model: authentik_policies_expression.expressionpolicy
+    id: password-stage-policy
+    identifiers:
+      name: default-authentication-flow-password-stage
+    attrs:
+      expression: |
+        flow_plan = request.context.get("flow_plan")
+        if not flow_plan:
+            return True
+        # If the user does not have a backend attached to it, they haven't
+        # been authenticated yet and we need the password stage
+        return not hasattr(flow_plan.context.get("pending_user"), "backend")
+
+  - model: authentik_policies_expression.expressionpolicy
+    id: authenticator-validate-policy
+    identifiers:
+      name: default-authentication-flow-authenticator-validate-stage
+    attrs:
+      expression: |
+        flow_plan = request.context.get("flow_plan")
+        if not flow_plan:
+            return True
+        # if the authentication method is webauthn (passwordless), then we skip the authenticator
+        # validation stage by returning false (true will execute the stage)
+        return not (flow_plan.context.get("auth_method") == "auth_webauthn_pwl")
+
+  # ---- Stages ----
+  - model: authentik_stages_identification.identificationstage
+    id: identification-stage
+    identifiers:
+      name: default-authentication-identification
+    attrs:
+      case_insensitive_matching: true
+      show_matched_user: true
+      user_fields:
+        - username
+        - email
+      # References to objects defined in other blueprints
+      captcha_stage: !Find [authentik_stages_captcha.captchastage, [name, Cloudflare Turnstile]]
+      enrollment_flow: !Find [authentik_flows.flow, [slug, default-enrollment-flow]]
+
+  - model: authentik_stages_deny.denystage
+    id: deny-disabled-stage
+    identifiers:
+      name: Block Disabled Accounts
+    attrs:
+      deny_message: Your account is disabled, please use Forgot Password to re-enable account.
+
+  - model: authentik_stages_password.passwordstage
+    id: password-stage
+    identifiers:
+      name: default-authentication-password
+    attrs:
+      backends:
+        - authentik.core.auth.InbuiltBackend
+        - authentik.sources.kerberos.auth.KerberosBackend
+        - authentik.sources.ldap.auth.LDAPBackend
+        - authentik.core.auth.TokenBackend
+      failed_attempts_before_cancel: 5
+      # configure_flow: Set this to your password-change flow if desired
+
+  - model: authentik_stages_authenticator_validate.authenticatorvalidatestage
+    id: mfa-validation-stage
+    identifiers:
+      name: default-authentication-mfa-validation
+    attrs:
+      device_classes:
+        - static
+        - totp
+        - webauthn
+        - duo
+        - sms
+        - email
+      last_auth_threshold: seconds=0
+      not_configured_action: skip
+      webauthn_user_verification: preferred
+
+  - model: authentik_stages_user_login.userloginstage
+    id: login-stage
+    identifiers:
+      name: default-authentication-login
+    attrs:
+      geoip_binding: no_binding
+      network_binding: no_binding
+      remember_device: days=30
+      remember_me_offset: seconds=0
+      session_duration: seconds=0
+
+  # ---- Flow-Stage Bindings ----
+  - model: authentik_flows.flowstagebinding
+    id: auth-binding-5
+    identifiers:
+      target: !KeyOf authentication-flow
+      stage: !KeyOf identification-stage
+      order: 5
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: auth-binding-20
+    identifiers:
+      target: !KeyOf authentication-flow
+      stage: !KeyOf password-stage
+      order: 20
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: auth-binding-25
+    identifiers:
+      target: !KeyOf authentication-flow
+      stage: !KeyOf deny-disabled-stage
+      order: 25
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: auth-binding-30
+    identifiers:
+      target: !KeyOf authentication-flow
+      stage: !KeyOf mfa-validation-stage
+      order: 30
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  - model: authentik_flows.flowstagebinding
+    id: auth-binding-100
+    identifiers:
+      target: !KeyOf authentication-flow
+      stage: !KeyOf login-stage
+      order: 100
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true
+
+  # ---- Policy Bindings ----
+  # block-disabled-accounts -> deny stage binding (negated)
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf auth-binding-25
+      policy: !KeyOf block-disabled-accounts-policy
+      order: 0
+    attrs:
+      enabled: true
+      negate: true
+      timeout: 30
+
+  # password-stage policy -> password binding
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf auth-binding-20
+      policy: !KeyOf password-stage-policy
+      order: 10
+    attrs:
+      enabled: true
+      failure_result: true
+      timeout: 30
+
+  # authenticator-validate policy -> mfa binding
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf auth-binding-30
+      policy: !KeyOf authenticator-validate-policy
+      order: 10
+    attrs:
+      enabled: true
+      failure_result: true
+      timeout: 30

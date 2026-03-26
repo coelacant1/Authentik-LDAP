@@ -1,0 +1,13 @@
+Name: enrollment-wait-user-message
+Field Key: enrollment-wait-user-message
+Label: Enrollment Confirmation
+Type: Simple Text Input
+Required: No
+Interpret placeholder as expression: No
+Placeholder: 
+Interpret initial value as expression: No
+Initial value:
+Help Text: Your account will be created on the next page.
+
+Once your account is created, you can set your password by clicking Log In and then Forgot Your Password to authenticate with your organization email.
+Order: 0

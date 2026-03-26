@@ -1,0 +1,15 @@
+[Unit]
+Description=AD User Creation API
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ad-user-api
+EnvironmentFile=/opt/ad-user-api/.env
+ExecStart=/opt/ad-user-api/venv/bin/python ad_user_api.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

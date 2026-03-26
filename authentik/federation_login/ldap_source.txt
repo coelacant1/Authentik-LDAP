@@ -1,0 +1,37 @@
+Name: <ORG_NAME> ldap
+Slug: <org-slug>-ldap
+Enabled: Yes
+Update internal password on login: Yes
+Sync users: Yes
+Update password writeback: Yes
+Sync groups: Yes
+Delete not found objects: Yes
+Server URI: ldap://<AD_SERVER_IP>:389
+Enable StartTLS: Yes
+Use Server URI for SNI Verification: No
+TLS Verification certificate: 
+TLS Client authentication certificate:
+Bind CN: <AD_BIND_USER>
+Bind Password: *****************
+Base DN: <AD_BASE_DN>
+User property mappings:
+- authentik default Active Directory Mapping: givenName
+- authentik default Active Directory Mapping: sAMAccountName
+- authentik default Active Directory Mapping: sn
+- authentik default Active Directory Mapping: userPrincipalName
+- authentik default LDAP Mapping: DN to User Path
+- authentik default LDAP Mapping: mail
+- authentik default LDAP Mapping: Name
+Group property mappings:
+- authentik default OpenLDAP Mapping: cn
+Parent group: 
+User path: goauthentik.io/sources/%(slug)s
+Additional User DN: 
+Additional Group DN: 
+User object filter: (objectClass=person)
+Group object filter: (objectClass=group)
+Group membership field: membership
+User membership attribute: distinguishedName
+Lookup adding user attribute: No
+Object uniqueness field: objectSid
+Outgoing sync trigger mode: Deferred until end

@@ -1,0 +1,6 @@
+Name: default-authentication-mfa-validation
+Stage Type: Authenticator Validate Stage
+Device Classes: static, totp, webauthn, duo, sms, email
+Not Configured Action: skip
+Last Auth Threshold: seconds=0
+WebAuthn User Verification: preferred

@@ -1,0 +1,11 @@
+Name: default-enrollment-field-username-hidden
+Field Key: username
+Label: username
+Type: hidden
+Required: Yes
+Interpret intial placeholder as expression: No
+Placeholder:
+Interpret initial value as expression: Yes
+Initial value: return request.context.get("prompt_data", {}).get("email", "").split("@")[0]
+Help text: 
+Order: 0

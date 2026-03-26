@@ -1,0 +1,4 @@
+Name: default-source-enrollment-prompt
+Stage Type: Prompt Stage
+Fields: default-source-enrollment-field-username
+Validation Policies: (none)

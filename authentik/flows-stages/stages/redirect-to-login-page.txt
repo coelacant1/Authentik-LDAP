@@ -1,0 +1,6 @@
+Name: Redirect to login page
+Stage Type: Redirect Stage
+Mode: static
+Target (Static): https://account.<YOUR_DOMAIN>
+Keep URL: No
+Note: Shared between enrollment and recovery flows

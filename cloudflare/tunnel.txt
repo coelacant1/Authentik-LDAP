@@ -1,0 +1,3 @@
+Published application routes, Path, Service, Origin Configuration
+1, account.<YOUR_DOMAIN>, *, http://<NGINX_IP>:80, 0
+2. *.account.<YOUR_DOMAIN>, *, http://<NGINX_IP>:80, 0

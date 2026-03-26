@@ -1,0 +1,11 @@
+# Buggy, not used, wouldn't consistently work
+Name: Google reCaptcha
+Provider type: Google reCaptcha v2
+Public Key: <RECAPTCHA_PUBLIC_KEY>
+Private Key: 
+Interactive: Yes
+Score Minimum Threshold: 0.5
+Score Maximum Threshold: -1
+Error on invalid score: Yes
+JavaScript URL: https://www.google.com/recaptcha/api.js
+API Verification URL: https://www.google.com/recaptcha/api/siteverify

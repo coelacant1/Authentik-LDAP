@@ -1,0 +1,4 @@
+Name: enrollment-prompt
+Stage Type: Prompt Stage
+Fields: default-enrollment-field-name, default-enrollment-field-email
+Validation Policies: email-domain-restriction

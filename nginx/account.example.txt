@@ -1,0 +1,18 @@
+Details:
+    Domain names: account.<YOUR_DOMAIN>
+    Scheme: https
+    Forward hostname: <AUTHENTIK_IP>
+    Forward port: 9443
+    Cache assets: No
+    Block common exploits: No
+    Websockets support: Yes
+    Access list: Publicly Accessible
+Custom locations:
+SSL:
+Advanced:
+    proxy_ssl_verify off;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Host $host;

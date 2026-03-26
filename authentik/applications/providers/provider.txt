@@ -1,0 +1,19 @@
+Provider name: Application Name
+Authorization flow: default-provider-authorization-implicit-consent(Authorize Application)
+Mode: Forward auth (domain level)
+Authentication URL: https://account.<YOUR_DOMAIN>
+Cookie Domain: account.<YOUR_DOMAIN>
+Token validity: hours=24
+Protocol settings:
+    Additional scopes:
+    - authentik default OAuth Mapping: Application Entitlements
+    - authentik default OAuth Mapping: OpenID 'email'
+    - authentik default OAuth Mapping: OpenID 'openid'
+    - authentik default OAuth Mapping: OpenID 'profile'
+    - authentik default OAuth Mapping: Proxy outpost
+    Unauthenticated URLs:
+Authentication settings:
+    Intercept header authentication: Yes
+Advanced flow settings:
+    Authentication flow: default-authentication-flow (Login)
+    Invalidation flow: default-provider-invalidation-flow (Logged out of application)

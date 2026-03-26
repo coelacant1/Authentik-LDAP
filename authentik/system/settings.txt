@@ -1,0 +1,5 @@
+Allow users to change name: Yes
+Allow users to change email: No
+Allow users to change username: No
+Reputation lower limit: -5
+Reputation upper limit: 5

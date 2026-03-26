@@ -1,0 +1,19 @@
+Title: <ORG_NAME> Account Management
+Branding Settings:
+    Logo: <ORG_LOGO>
+    Favicon: favicon.ico
+    Default flow background: bg.png
+    Custom CSS:
+External user settings:
+    Default application:
+Default flows:
+    Authentication flow: default-authentication-flow (Login)
+    Invalidation flow: default-invalidation-flow (Logout)
+    Recovery flow: default-recovery-flow (Default recovery flow)
+    Unenrollment flow: 
+    User settings flow: default-user-settings-flow (User settings)
+    Device code flow: default-authenticator-totp-setup (default-authenticator-totp-setup)
+Other global settings:
+    Web certificate:
+    Client certificate:
+    Attribute:

@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+version: 1
+metadata:
+  name: Default Invalidation Flow
+entries:
+  - model: authentik_flows.flow
+    id: invalidation-flow
+    identifiers:
+      slug: default-invalidation-flow
+    attrs:
+      name: Logout
+      title: Default Invalidation Flow
+      designation: invalidation
+      authentication: none
+      denied_action: message_continue
+      layout: stacked
+      policy_engine_mode: any
+
+  - model: authentik_stages_user_logout.userlogoutstage
+    id: logout-stage
+    identifiers:
+      name: default-invalidation-logout
+    attrs: {}
+
+  - model: authentik_flows.flowstagebinding
+    id: invalidation-binding-0
+    identifiers:
+      target: !KeyOf invalidation-flow
+      stage: !KeyOf logout-stage
+      order: 0
+    attrs:
+      invalid_response_action: retry
+      policy_engine_mode: any
+      re_evaluate_policies: true

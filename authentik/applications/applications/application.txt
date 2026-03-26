@@ -1,0 +1,10 @@
+Application Name: Application Name
+Slug: application-name
+Group:
+Provider: Application Provider
+Backchannel Providers:
+Policy engine mode: ANY
+UI Settings:
+    Launch URL: https://app.account.<YOUR_DOMAIN>/app
+    Open in new tab: Yes
+    Icon: application_logo.png

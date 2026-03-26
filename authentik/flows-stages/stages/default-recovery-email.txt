@@ -1,0 +1,13 @@
+Name: default-recovery-email
+Stage Type: Email Stage
+Use Global Settings: Yes
+Host: smtp.gmail.com
+Port: 587
+Username: <SMTP_USERNAME>
+Use TLS: Yes
+From Address: system@<YOUR_DOMAIN>
+Subject: Password Recovery
+Template: email/password_reset.html
+Token Expiry: 60
+Timeout: 30
+Activate User on Success: Yes

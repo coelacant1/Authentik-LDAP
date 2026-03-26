@@ -1,0 +1,11 @@
+Name: default-enrollment-field-email
+Field Key: email
+Label: email
+Type: Text field with email
+Required: Yes
+Interpret placeholder as expression: No
+Placeholder: Email
+Interpret initial value as expression: No
+Initial value: 
+Help text:
+Order: 1

@@ -1,0 +1,11 @@
+Name: recover-user-wait-message
+Field Key: recover-user-wait-message
+Label: Recovery Information
+Type: Static
+Required: No
+Interpret placeholder as expression: No
+Placeholder:
+Interpret initial value as expression: No
+Initial Value:
+Help text: The recovery email link will be sent you shortly. Your mail server may take a few minutes to deliver the email. Your link will be valid for 1 hour.
+Order: 0

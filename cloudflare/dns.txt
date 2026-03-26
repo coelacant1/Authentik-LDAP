@@ -1,0 +1,3 @@
+Type, Name, Content, Proxy Status, TTL
+Tunnel, *.account, <CF_TUNNEL_ID>.cfargotunnel.com, Proxied, auto
+Tunnel, account, <CF_TUNNEL_ID>.cfargotunnel.com, Proxied, auto

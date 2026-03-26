@@ -1,0 +1,3 @@
+Name: default-recovery-user-write
+Stage Type: User Write Stage
+User Creation Mode: never_create

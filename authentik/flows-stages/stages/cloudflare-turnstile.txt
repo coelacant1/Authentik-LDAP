@@ -1,0 +1,7 @@
+Name: Cloudflare Turnstile
+Provider Type: Cloudflare Turnstile
+Public Key: <CAPTCHA_PUBLIC_KEY>
+Private Key: 
+Interactive: Yes
+JavaScript URL: https://challenges.cloudflare.com/turnstile/v0/api.js
+API Verification URL: https://challenges.cloudflare.com/turnstile/v0/siteverify
